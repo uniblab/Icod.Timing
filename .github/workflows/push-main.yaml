@@ -1,0 +1,91 @@
+name: build and publish
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+  packages: write
+
+jobs:
+  # ----------------------------------------------------
+  # STAGE 1: Cross-Platform Build & Test (All 3 OSs)
+  # ----------------------------------------------------
+  build-and-test:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            7.0.x
+            8.0.x
+            9.0.x
+            10.0.x
+
+      - run: dotnet clean Icod.Timing.sln -c Release
+      - run: dotnet restore Icod.Timing.sln
+      - run: dotnet build Icod.Timing.sln -c Release --no-restore -p:ContinuousIntegrationBuild=true
+      - run: dotnet test Icod.Timing.sln -c Release --no-build --logger trx
+
+      - name: Pack NuGet Package
+        if: matrix.os == 'windows-latest'
+        run: dotnet pack Icod.Timing.csproj -c Release --no-build -o ./artifacts
+
+      - name: Upload Artifact
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-package
+          path: ./artifacts/*nupkg
+
+  # ----------------------------------------------------
+  # STAGE 2: Secure & Single NuGet Deployment
+  # ----------------------------------------------------
+  deploy:
+    needs: build-and-test
+    runs-on: windows-latest
+    environment: Release
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            7.0.x
+            8.0.x
+            9.0.x
+            10.0.x
+
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-package
+          path: ./artifacts
+
+      - name: NuGet login (OIDC → temp API key)
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: NuGet push
+        shell: pwsh
+        run: |
+          Get-ChildItem "./artifacts/Icod.Timing.*.nupkg" | ForEach-Object {
+            dotnet nuget push $_.FullName --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+          }
+
+      - name: Push to GitHub Packages
+        shell: pwsh
+        run: |
+          Get-ChildItem "./artifacts/Icod.Timing.*.nupkg" | ForEach-Object {
+            dotnet nuget push $_.FullName --api-key "${{ secrets.GITHUB_TOKEN }}" --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --skip-duplicate
+          }
