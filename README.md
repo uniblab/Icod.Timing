@@ -88,6 +88,12 @@ dotnet test Icod.Timing.sln
 The repository contains the library project at the root, a sample under
 `samples/Icod.Timing.Sample`, and its test project under `tests/Timing.Tests`.
 
+## Author and copyright
+
+Author: Timothy J. Bruce <uniblab@hotmail.com>
+
+Copyright (c) 2026 Timothy J. Bruce
+
 ## License
 
 `Icod.Timing` is licensed under the GNU Lesser General Public License, version
