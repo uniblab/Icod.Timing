@@ -17,11 +17,19 @@ this fixed cadence."
   rechecks long delays in bounded slices so wall-clock adjustments cannot change
   the requested elapsed duration.
 - `PeriodicTick` describes one fixed-rate scheduling observation, including its
-  sequence, scheduled elapsed time, observed elapsed time, and lateness.
+  logical schedule sequence, scheduled elapsed time, observed elapsed time, and
+  lateness.
+- `PeriodicMissedTickPolicy` makes overdue-tick behavior explicit. The default
+  `SkipMissed` policy advances to the most recent schedule position that is
+  already due; `CatchUp` emits each overdue position in sequence.
 - `IPeriodicScheduler` supplies cancellable fixed-rate periodic ticks.
 - `MonotonicPeriodicScheduler` schedules against elapsed time from a monotonic
   clock instead of repeatedly delaying from the previous tick, avoiding
   cumulative drift.
+
+When `SkipMissed` is used, `PeriodicTick.Sequence` is the logical fixed-rate
+schedule sequence and can therefore jump when one or more overdue ticks are
+discarded.
 
 ## Basic use
 
@@ -39,7 +47,8 @@ TimeSpan elapsed = clock.GetElapsedTime(
 
 await foreach ( PeriodicTick tick in MonotonicPeriodicScheduler.Instance.ScheduleAsync(
 	TimeSpan.FromSeconds( 1 ),
-	fireImmediately: true
+	fireImmediately: true,
+	missedTickPolicy: PeriodicMissedTickPolicy.SkipMissed
 ) ) {
 	Console.WriteLine(
 		$"tick {tick.Sequence}: scheduled={tick.ScheduledElapsed}, late={tick.Lateness}"
@@ -58,6 +67,15 @@ Typical consumers include timeout enforcement, `tail -f` polling, progress
 reporting, refresh loops, input ambiguity windows, health checks, keepalives,
 rate limiting, and periodic sampling.
 
+## Sample
+
+`Icod.Timing.Sample` demonstrates elapsed-time measurement, cancellable delay,
+fixed-rate scheduling, and skipped-tick behavior with the system clock.
+
+```text
+dotnet run --project samples/Icod.Timing.Sample/Icod.Timing.Sample.csproj
+```
+
 ## Build and test
 
 `Icod.Timing` targets .NET 7.0, 8.0, 9.0, and 10.0 and uses C# 13.
@@ -67,8 +85,8 @@ dotnet build Icod.Timing.sln
 dotnet test Icod.Timing.sln
 ```
 
-The repository contains the library project at the root and its test project
-under `tests/Timing.Tests`.
+The repository contains the library project at the root, a sample under
+`samples/Icod.Timing.Sample`, and its test project under `tests/Timing.Tests`.
 
 ## License
 

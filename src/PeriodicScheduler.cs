@@ -3,6 +3,21 @@ namespace Icod.Timing;
 using System.Runtime.CompilerServices;
 
 /// <summary>
+/// Defines how a periodic scheduler handles scheduled ticks that are already overdue.
+/// </summary>
+public enum PeriodicMissedTickPolicy {
+	/// <summary>
+	/// Skips overdue schedule positions and emits only the most recent tick due at the observation time.
+	/// </summary>
+	SkipMissed = 0,
+
+	/// <summary>
+	/// Emits every overdue schedule position in sequence until the schedule catches up.
+	/// </summary>
+	CatchUp = 1
+}
+
+/// <summary>
 /// Describes one fixed-rate periodic scheduling observation.
 /// </summary>
 public sealed class PeriodicTick {
@@ -22,13 +37,15 @@ public sealed class PeriodicTick {
 		get;
 	}
 
-	/// <summary>Gets the zero-based tick sequence.</summary>
+	/// <summary>
+	/// Gets the zero-based logical schedule sequence. Values can jump when missed ticks are skipped.
+	/// </summary>
 	public long Sequence {
 		get;
 	}
 
 	/// <summary>Initializes a periodic tick.</summary>
-	/// <param name="sequence">The zero-based tick sequence.</param>
+	/// <param name="sequence">The zero-based logical schedule sequence.</param>
 	/// <param name="scheduledElapsed">The elapsed time at which the tick was scheduled.</param>
 	/// <param name="observedElapsed">The elapsed time observed when the tick was emitted.</param>
 	public PeriodicTick(
@@ -39,6 +56,16 @@ public sealed class PeriodicTick {
 		if ( 0 > sequence ) {
 			throw new ArgumentOutOfRangeException(
 				nameof( sequence )
+			);
+		}
+		if ( TimeSpan.Zero > scheduledElapsed ) {
+			throw new ArgumentOutOfRangeException(
+				nameof( scheduledElapsed )
+			);
+		}
+		if ( TimeSpan.Zero > observedElapsed ) {
+			throw new ArgumentOutOfRangeException(
+				nameof( observedElapsed )
 			);
 		}
 		this.Sequence = sequence;
@@ -55,11 +82,13 @@ public interface IPeriodicScheduler {
 	/// <param name="interval">The positive fixed-rate interval between scheduled ticks.</param>
 	/// <param name="fireImmediately">Whether to emit sequence zero immediately at elapsed time zero.</param>
 	/// <param name="cancellationToken">Cancellation for the schedule.</param>
+	/// <param name="missedTickPolicy">The policy applied when one or more schedule positions are overdue.</param>
 	/// <returns>An asynchronous sequence of periodic tick observations.</returns>
 	IAsyncEnumerable<PeriodicTick> ScheduleAsync(
 		TimeSpan interval,
 		bool fireImmediately = false,
-		CancellationToken cancellationToken = default
+		CancellationToken cancellationToken = default,
+		PeriodicMissedTickPolicy missedTickPolicy = PeriodicMissedTickPolicy.SkipMissed
 	);
 }
 
@@ -91,15 +120,26 @@ public sealed class MonotonicPeriodicScheduler : IPeriodicScheduler {
 	public async IAsyncEnumerable<PeriodicTick> ScheduleAsync(
 		TimeSpan interval,
 		bool fireImmediately = false,
-		[EnumeratorCancellation] CancellationToken cancellationToken = default
+		[EnumeratorCancellation] CancellationToken cancellationToken = default,
+		PeriodicMissedTickPolicy missedTickPolicy = PeriodicMissedTickPolicy.SkipMissed
 	) {
 		if ( TimeSpan.Zero >= interval ) {
 			throw new ArgumentOutOfRangeException(
 				nameof( interval )
 			);
 		}
+		if ( missedTickPolicy is not PeriodicMissedTickPolicy.SkipMissed
+			and not PeriodicMissedTickPolicy.CatchUp ) {
+			throw new ArgumentOutOfRangeException(
+				nameof( missedTickPolicy )
+			);
+		}
+
+		cancellationToken.ThrowIfCancellationRequested();
+
 		var started = this._clock.GetTimestamp();
 		var sequence = 0L;
+
 		if ( fireImmediately ) {
 			yield return new PeriodicTick(
 				sequence++,
@@ -107,38 +147,108 @@ public sealed class MonotonicPeriodicScheduler : IPeriodicScheduler {
 				TimeSpan.Zero
 			);
 		}
+
 		while ( true ) {
 			cancellationToken.ThrowIfCancellationRequested();
-			var scheduledElapsed = TimeSpan.FromTicks(
-				checked(
-					interval.Ticks * (
-						sequence
-						+ ( fireImmediately ? 0L : 1L )
-					)
-				)
-			);
+
 			var now = this._clock.GetTimestamp();
 			var observedElapsed = this._clock.GetElapsedTime(
 				started,
 				now
 			);
+
+			sequence = ApplyMissedTickPolicy(
+				sequence,
+				interval,
+				observedElapsed,
+				fireImmediately,
+				missedTickPolicy
+			);
+
+			var scheduledElapsed = GetScheduledElapsed(
+				sequence,
+				interval,
+				fireImmediately
+			);
 			var remaining = scheduledElapsed - observedElapsed;
+
 			if ( TimeSpan.Zero < remaining ) {
 				await this._clock.DelayAsync(
 					remaining,
 					cancellationToken
 				).ConfigureAwait( false );
 			}
+
+			cancellationToken.ThrowIfCancellationRequested();
+
 			now = this._clock.GetTimestamp();
 			observedElapsed = this._clock.GetElapsedTime(
 				started,
 				now
 			);
+
+			sequence = ApplyMissedTickPolicy(
+				sequence,
+				interval,
+				observedElapsed,
+				fireImmediately,
+				missedTickPolicy
+			);
+			scheduledElapsed = GetScheduledElapsed(
+				sequence,
+				interval,
+				fireImmediately
+			);
+
 			yield return new PeriodicTick(
 				sequence++,
 				scheduledElapsed,
 				observedElapsed
 			);
 		}
+	}
+
+	private static long ApplyMissedTickPolicy(
+		long sequence,
+		TimeSpan interval,
+		TimeSpan observedElapsed,
+		bool fireImmediately,
+		PeriodicMissedTickPolicy missedTickPolicy
+	) {
+		if ( PeriodicMissedTickPolicy.CatchUp == missedTickPolicy ) {
+			return sequence;
+		}
+
+		var elapsedIntervals = observedElapsed.Ticks / interval.Ticks;
+		var sequenceOffset = fireImmediately
+			? 0L
+			: 1L
+		;
+		var latestDueSequence = elapsedIntervals - sequenceOffset;
+
+		return latestDueSequence > sequence
+			? latestDueSequence
+			: sequence
+		;
+	}
+
+	private static TimeSpan GetScheduledElapsed(
+		long sequence,
+		TimeSpan interval,
+		bool fireImmediately
+	) {
+		var sequenceOffset = fireImmediately
+			? 0L
+			: 1L
+		;
+		var multiplier = checked(
+			sequence + sequenceOffset
+		);
+
+		return TimeSpan.FromTicks(
+			checked(
+				interval.Ticks * multiplier
+			)
+		);
 	}
 }

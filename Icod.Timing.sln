@@ -8,6 +8,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{66D5E516
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Icod.Timing.Tests", "tests\Timing.Tests\Icod.Timing.Tests.csproj", "{DC02190A-4409-44E0-93CF-350FF042E34C}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{AA4F48D3-E8CB-49F7-9C93-3F2D28259864}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Icod.Timing.Sample", "samples\Icod.Timing.Sample\Icod.Timing.Sample.csproj", "{A3320808-1E6E-4422-AC52-A148A5A48160}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,12 +31,19 @@ Global
 		{DC02190A-4409-44E0-93CF-350FF042E34C}.Release|Any CPU.Build.0 = Release|Any CPU
 		{DC02190A-4409-44E0-93CF-350FF042E34C}.Staging|Any CPU.ActiveCfg = Staging|Any CPU
 		{DC02190A-4409-44E0-93CF-350FF042E34C}.Staging|Any CPU.Build.0 = Staging|Any CPU
+		{A3320808-1E6E-4422-AC52-A148A5A48160}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A3320808-1E6E-4422-AC52-A148A5A48160}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A3320808-1E6E-4422-AC52-A148A5A48160}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A3320808-1E6E-4422-AC52-A148A5A48160}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A3320808-1E6E-4422-AC52-A148A5A48160}.Staging|Any CPU.ActiveCfg = Staging|Any CPU
+		{A3320808-1E6E-4422-AC52-A148A5A48160}.Staging|Any CPU.Build.0 = Staging|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{DC02190A-4409-44E0-93CF-350FF042E34C} = {66D5E516-5F0A-46C8-99AB-B2D99F50451B}
+		{A3320808-1E6E-4422-AC52-A148A5A48160} = {AA4F48D3-E8CB-49F7-9C93-3F2D28259864}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {8A8F0C70-5157-4CDA-9D0B-A4DDF8DBB6A9}

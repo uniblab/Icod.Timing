@@ -65,6 +65,7 @@
 	</PropertyGroup>
 	<ItemGroup>
 		<Compile Include="src\**\*.cs" />
+		<None Include="icon.png" Pack="true" PackagePath="" />
 		<EmbeddedResource Remove="tests\**" />
 		<None Remove="tests\**" />
 	</ItemGroup>

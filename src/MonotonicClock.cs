@@ -67,6 +67,7 @@ public sealed class SystemMonotonicClock : IMonotonicClock {
 				nameof( delay )
 			);
 		}
+		cancellationToken.ThrowIfCancellationRequested();
 		if ( TimeSpan.Zero == delay ) {
 			return ValueTask.CompletedTask;
 		}
