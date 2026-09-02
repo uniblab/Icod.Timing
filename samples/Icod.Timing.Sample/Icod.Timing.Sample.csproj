@@ -11,6 +11,20 @@
 		<IsPackable>false</IsPackable>
 		<Configurations>Debug;Release;Staging</Configurations>
 	</PropertyGroup>
+	<PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+		<DebugSymbols>true</DebugSymbols>
+		<DebugType>portable</DebugType>
+		<Optimize>false</Optimize>
+	</PropertyGroup>
+	<PropertyGroup Condition=" '$(Configuration)' == 'Staging' ">
+		<DebugSymbols>true</DebugSymbols>
+		<DebugType>portable</DebugType>
+		<Optimize>false</Optimize>
+	</PropertyGroup>
+	<PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+		<DebugType>portable</DebugType>
+		<Optimize>true</Optimize>
+	</PropertyGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\..\Icod.Timing.csproj" />
 	</ItemGroup>
